@@ -1,0 +1,67 @@
+#include <LiquidCrystal.h>
+
+LiquidCrystal lcd(12, 11, 7, 6, 5, 4);
+#define ODA_ID 2
+#define BTN_ACIL 2
+#define PIN_ATES A0
+#define PIN_NABIZ A1
+#define LED_KAPI 13
+
+bool acilDurum = false;
+bool hemsireGeliyor = false;
+
+void setup() {
+  Serial.begin(9600);
+  pinMode(BTN_ACIL, INPUT_PULLUP);
+  pinMode(LED_KAPI, OUTPUT);
+  lcd.begin(16, 2);
+  lcd.print("ODA 102 SISTEMI");
+  lcd.setCursor(0,1); lcd.print("AKTIF");
+}
+
+void loop() {
+  if (digitalRead(BTN_ACIL) == LOW && !acilDurum) {
+    acilDurum = true;
+    hemsireGeliyor = false;
+    digitalWrite(LED_KAPI, HIGH);
+    lcd.clear(); lcd.print("! CAGRI YAPILDI !");
+    lcd.setCursor(0, 1); lcd.print("HEMSIRE BEKLENIYOR");
+  }
+
+  if (Serial.available()) {
+    char gelen = Serial.read();
+
+    if (gelen == '2') {
+      delay(20);
+      if (acilDurum) {
+        Serial.print("A,2"); Serial.println();
+      } else {
+        long okunanAtes = analogRead(PIN_ATES);
+        int ates = (okunanAtes * 500L) / 1024;
+        int nabiz = map(analogRead(PIN_NABIZ), 0, 1023, 40, 180);
+        
+        Serial.print("D,");
+        Serial.print(ODA_ID); Serial.print(",");
+        Serial.print(ates); Serial.print(",");
+        Serial.println(nabiz);
+        
+        if(!hemsireGeliyor) {
+          lcd.setCursor(0,0); lcd.print("ATES: "); lcd.print(ates); lcd.print(" C ");
+          lcd.setCursor(0,1); lcd.print("NABIZ: "); lcd.print(nabiz); lcd.print(" BPM ");
+        }
+      }
+    }
+    else if (gelen == 'K') {
+      acilDurum = false;
+      hemsireGeliyor = true;
+      digitalWrite(LED_KAPI, LOW);
+      lcd.clear(); lcd.print("HEMSIRE GELIYOR");
+      lcd.setCursor(0,1); lcd.print("LUTFEN BEKLEYIN");
+      delay(3000);
+      lcd.clear(); lcd.print("ODA 102 SISTEMI");
+      lcd.setCursor(0,1); lcd.print("AKTIF");
+      hemsireGeliyor = false;
+      while(Serial.available()) Serial.read();
+    }
+  }
+}
